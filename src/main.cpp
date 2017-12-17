@@ -65,6 +65,24 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
   return result;
 }
 
+// convert pos in map coordinate to car coordinate given car position carpos
+vector<double> convertMapToCarCoordinateSystem(vector<double> carpos, vector<double> pos){
+
+  double carx = carpos[0];
+  double cary = carpos[1];
+  double carpsi = carpos[2];
+
+  double x = pos[0];
+  double y = pos[1];
+
+
+  double x1 =  (x - carx)*cos(carpsi) + (y-cary)*sin(carpsi);
+  double y1 = -(x - carx)*sin(carpsi) + (y-cary)*cos(carpsi);
+
+  vector<double> waypoint = {x1,y1};
+  return waypoint;
+}
+
 int main() {
   uWS::Hub h;
 
@@ -101,6 +119,35 @@ int main() {
           double steer_value;
           double throttle_value;
 
+          // convert the coordinate system to right handed
+          // since the y coordinate from the simulator is reversed
+          py = -py;
+          for(int i=0;i<ptsy.size();i++) ptsy[i]=-ptsy[i];
+          psi = -psi;
+
+          Eigen::VectorXd ptsxVec(ptsx.size());
+          Eigen::VectorXd ptsyVec(ptsy.size());
+
+          // convert map to car coordinate
+          vector<double> carpos = {px,py,psi};
+          for(int i=0;i<ptsx.size();i++){
+        	  vector<double> posmap = {ptsx[i],ptsy[i]};
+			  vector<double> waypoint = convertMapToCarCoordinateSystem(carpos,posmap);
+			  ptsxVec[i] = waypoint[0];
+			  ptsyVec[i] = waypoint[1];
+          }
+
+          auto coeffs = polyfit(ptsxVec,ptsyVec,3);
+
+          Eigen::VectorXd state(6);
+          double cte = polyeval(coeffs,0.);
+          double epsi = atan(coeffs[1]);
+          state << 0,0,0, v, cte, epsi;
+          auto vars = mpc.Solve(state, coeffs);
+
+          steer_value = vars[0]/deg2rad(25);
+          throttle_value = vars[1];
+
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
@@ -114,6 +161,14 @@ int main() {
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
 
+          for(int i=2;i<vars.size();i++){
+        	  if (i<vars.size()/2+1){
+        		  mpc_x_vals.push_back(vars[i]);
+        	  } else {
+        		  mpc_y_vals.push_back(-vars[i]);
+        	  }
+          }
+
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
@@ -123,6 +178,11 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
+
+          for(int i=0;i<ptsxVec.size();i++){
+        	  next_x_vals.push_back(ptsxVec[i]);
+        	  next_y_vals.push_back(-ptsyVec[i]);
+          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;

@@ -1,5 +1,50 @@
+[mpc_model]: ./img/MPC_Model.png "MPC Model"
+[mpc_screenshot]: ./img/MPC_Screenshot.png  "MPC_Screenshot"
+
 # CarND-Controls-MPC
 Self-Driving Car Engineer Nanodegree Program
+
+
+![MPC Screenshot][mpc_screenshot] 
+
+---
+## Project Description
+The purpose of this project was to implement a global kinematic model to steer a car around a track in a simulator. The simulator provides a feed of values containing the position of the car, its speed and heading direction. Additionally it provides the coordinates of waypoints along a reference trajectory that the car is to follow. All coordinates are provided in a global coordinate system. 
+
+The states for the model are: `[x,y,psi,v]` which stand for the position in x and y, the yaw angle, and the speed.
+The actuators are `[delta,a]` which stand for the steering angle and the acceleration.
+
+The MPC model figure shows the state update equations with the constraints and cost function:
+![MPC Model][mpc_model] 
+[This figure was taken from the Udacity Self Driving Car Nanodegree](https://www.udacity.com/drive)
+
+### Timestep Length and Elapsed Duration (N & dt)
+
+To drive safely around the track I set N=10,  dt to 0.05 and ref_v to 60. 
+The weights for the costs function are set as follows:
+1. CTE: 1 -> is the cross track error and means the distance of the car from the trajectory
+2. EPSI: 10 -> is the orientation error and means the orientation error of the car from the trajectory
+3. velocity: 1
+
+The weights for the reference states are:
+1. steering :10
+2. velocity: 1
+
+The weights for the actuators are:
+1. steering: 500
+2. velocity: 1
+
+The steering weight for the actuator is set to 500, which is relatively high to ensure a smooth change of the steering angle. `dt = 0.05` to account for the 100ms delay and `N = 10` to make sure the trajectory reaches long enough into the future but not too long to be stable.
+
+### Polynomial Fitting and MPC Preprocessing
+
+To perform the third order polynomial fitting of the waypoints, the map coordinate system have to be converted to the car coordinate system first. One fact to keep in mind is that the map coordinates are left handed and the car coordinates are right
+handed so the y values have to multiplied by -1 and then converted. 
+
+
+### Model Predictive Control with Latency
+
+To account for the latency of the actuations there is a 100ms delay used in the code. 
 
 ---
 
